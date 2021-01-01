@@ -1,10 +1,13 @@
 package ccs;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import javax.jws.WebMethod;
 import javax.jws.WebService;
+
+import ccs.Currency;
 
 @WebService
 public class CurrencyConversionService {
@@ -84,10 +87,13 @@ public class CurrencyConversionService {
     }
 
     @WebMethod
-    public List<String> GetCurrencyCodes() {
-        List<String> codes = new ArrayList();
+    public List<Currency> GetCurrencyCodes() {
+        ArrayList<Currency> codes = new ArrayList<Currency>();
         for (ExRate exr : ExRate.values()) {
-            codes.add(exr.name() + " - " + exr.curName);
+            Currency currency = new Currency();
+            currency.setCode(exr.name());
+            currency.setName(exr.curName);
+            codes.add(currency);
         }
         return codes;
     }
