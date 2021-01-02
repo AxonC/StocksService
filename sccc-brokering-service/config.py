@@ -49,3 +49,7 @@ LOG_LEVEL = LOG_LEVELS.get(override_value('LOG_LEVEL', 'DEBUG'), logging.DEBUG)
 logging.basicConfig(level=LOG_LEVEL)
 
 CURRENCY_SOAP_URL = override_value("CURRENCY_SOAP_URL", "")
+
+STOCK_PRICE_URL = override_value("STOCK_PRICE_URL", "")
+STOCK_PRICE_TOKEN = override_value("STOCK_PRICE_TOKEN", "")
+AUTHENTICATION_SECRET_KEY = override_value("AUTHENTICATION_SECRET_KEY", "")
