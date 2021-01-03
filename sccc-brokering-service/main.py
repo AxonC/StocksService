@@ -1,6 +1,7 @@
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Body
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List
 
@@ -15,12 +16,23 @@ from prices import get_company_quote
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 LOGGER = logging.getLogger(__name__)
 
 @app.get("/")
 def health_check():
     return {'check': 'ok'}
 
+@app.post("/login", dependencies=[Depends(get_current_user)])
+async def check_token():
+    return {'authenticated': True}
 
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
