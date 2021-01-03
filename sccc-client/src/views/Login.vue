@@ -26,16 +26,19 @@
 <script>
 import { ref } from 'vue'
 import { useAuth } from '../library/auth'
+import { useRouter } from 'vue-router'
 export default {
   name: "Login",
   setup() {
+    const router = useRouter()
     let form = ref({
       username: '',
       password: ''
     })
     const submitForm = async () => {
       const { login } = useAuth()
-      login(form.value.username, form.value.password)
+      await login(form.value.username, form.value.password)
+      await router.push({ name: 'Dashboard'})
     }
 
     return {
