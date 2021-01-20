@@ -19,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 def get_user_by_username(username: str):
     with get_cursor() as cursor:
-        cursor.execute("SELECT username, password FROM users WHERE username = %s;", (username,))
+        cursor.execute("SELECT username, password, balance FROM users WHERE username = %s;", (username,))
         user = cursor.fetchone()
     return user
 
