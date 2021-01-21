@@ -1,13 +1,17 @@
 package ccs;
 
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.jws.WebMethod;
 import javax.jws.WebService;
 
-import ccs.Currency;
+import org.json.JSONObject;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 @WebService
 public class CurrencyConversionService {
@@ -74,15 +78,35 @@ public class CurrencyConversionService {
         String curName()   { return curName; }
     }
 
+    private final OkHttpClient httpClient = new OkHttpClient();
+
+    private double GetConversionRateExternal(String currencyFrom, String currencyTo) throws IOException {
+        double rate = 0;
+    
+        Request request = new Request.Builder()
+            .url(String.format("https://api.exchangeratesapi.io/latest?base=%s", currencyFrom))
+            .addHeader("Accept", "application/json")
+            .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            JSONObject j = new JSONObject(response.body().string());
+            JSONObject currencyRate = j.optJSONObject("rates"); 
+            rate = currencyRate.optDouble(currencyTo);
+        }
+        
+        return rate;
+    }
+
     @WebMethod
     public double GetConversionRate(String cur1, String cur2) {
         try {
+            return GetConversionRateExternal(cur1, cur2);
+        } catch (IOException exception) {
+            // fallback on the enum contained within the class.
             double rate1 = ExRate.valueOf(cur1).rateInGBP;
             double rate2 = ExRate.valueOf(cur2).rateInGBP;
             return rate1/rate2;
-        }
-        catch (IllegalArgumentException iae) {
-            return -1;
         }
     }
 
