@@ -11,10 +11,12 @@ DataT = TypeVar('DataT')
 class Response(GenericModel, Generic[DataT]):
     data: Optional[DataT]
 
-class Company(BaseModel):
+class BaseCompany(BaseModel):
     symbol: str
     name: str
     available_shares: int
+
+class Company(BaseCompany):
     last_update: datetime
 
 class CompanyListing(Company):
@@ -33,7 +35,7 @@ class TransactionTypes(IntEnum):
     BUY = 1
     SELL = 2
 
-class BalanceOperators(Enum):
+class Operators(Enum):
     INCREMENT = "+"
     DECREMENT = "-"
 

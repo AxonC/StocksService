@@ -1,11 +1,17 @@
+import logging 
 from persistence import get_cursor
-from models import BalanceOperators
+from models import Operators
 
-def update_balance(change: float, username: str, operator: BalanceOperators):
+LOGGER = logging.getLogger(__name__)
+
+def update_balance(change: float, username: str, operator: Operators):
     with get_cursor() as cursor:
-        if operator == BalanceOperators.INCREMENT:
+        LOGGER.debug('Requested to change balance of %s by %s', username, change)
+        if operator == Operators.INCREMENT:
+            LOGGER.debug('Incrementing balance')
             query = "UPDATE users SET balance = balance + %s WHERE username = %s;"
         else:
+            LOGGER.debug('Decrementing balance for %s by %s', username, change)
             query = "UPDATE users SET balance = balance - %s WHERE username = %s;"
         cursor.execute(query,
             (
@@ -13,3 +19,21 @@ def update_balance(change: float, username: str, operator: BalanceOperators):
                 username
             )
         )
+
+def update_shares_owned(change: int, username: str, symbol: str, operator: Operators):
+    if operator == Operators.INCREMENT:
+        LOGGER.debug('Allocating %s shares to %s for symbol %s', change, username, symbol)
+        query = """INSERT INTO shares_owned_by_user (company_symbol, username, shares_owned)
+                           VALUES(%s, %s, %s)
+                           ON CONFLICT (company_symbol, username)
+                           DO UPDATE
+                           SET shares_owned = shares_owned_by_user.shares_owned + EXCLUDED.shares_owned"""
+    else:
+        LOGGER.debug('Deallocating %s shares to %s for symbol %s', change, username, symbol)
+        query = """INSERT INTO shares_owned_by_user (company_symbol, username, shares_owned)
+                    VALUES(%s, %s, %s)
+                    ON CONFLICT (company_symbol, username)
+                    DO UPDATE
+                    SET shares_owned = shares_owned_by_user.shares_owned - EXCLUDED.shares_owned"""
+    with get_cursor() as cursor:
+        cursor.execute(query, (symbol, username, change))

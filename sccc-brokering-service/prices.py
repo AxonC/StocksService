@@ -23,15 +23,15 @@ def get_company_quote(symbol: str) -> StockQuoteApiResponse:
 
 def convert_price_to_currency(price: float, currency_from: str, currency_to: str) -> float:
     """ Convert a given price from a currency to another """
-    divisor = SOAP_CLIENT.service.GetConversionRate(currency_from, currency_to)
-    return price / divisor
+    return SOAP_CLIENT.service.GetConversionRate(currency_from, currency_to)
 
 def get_latest_price_for_company(symbol: str):
     """ Get the latest available price for a given company """
     with get_cursor() as cursor:
         cursor.execute("""SELECT price FROM prices WHERE company_symbol = %s
                           ORDER BY timestamp DESC LIMIT 1;""", (symbol,))
-        yield cursor.fetchone()
+        price = cursor.fetchone()
+    return price['price'] if price['price'] is not None else None
 
 def insert_update_price_for_company(symbol: str, currency: str = 'GBP'):
     quote: StockQuoteApiResponse = get_company_quote(symbol)

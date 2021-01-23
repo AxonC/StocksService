@@ -13,8 +13,9 @@ from datetime import datetime, timezone, timedelta
 from auth import get_current_user, authenticate_user, create_token
 from persistence import get_cursor
 from models import Company, Response, Currency, StockQuoteApiResponse, CompanyListing, \
-    CompanyDetails, CompanyPriceHistory, User, Transaction, BalanceOperators
-from config import DBConfig, CURRENCY_SOAP_URL, STOCK_PRICE_URL, STOCK_PRICE_TOKEN
+    CompanyDetails, CompanyPriceHistory, User, Transaction, Operators
+from config import DBConfig, CURRENCY_SOAP_URL, STOCK_PRICE_URL, STOCK_PRICE_TOKEN, \
+    BASE_CURRENCY
 from prices import (
     get_company_quote, 
     insert_update_price_for_company,
@@ -22,7 +23,10 @@ from prices import (
     get_latest_price_for_company
 )
 from transactions import log_purchase, get_transactions_by_username, log_sale
-from users import update_balance
+from users import update_balance, update_shares_owned
+from company import update_available_shares, get_shares_owned_by_user
+
+from routers import admin
 
 app = FastAPI()
 
@@ -33,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(admin.router, prefix='/admin', dependencies=[Depends(get_current_user)])
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +67,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_token(username=user.username)
     LOGGER.info("Token generated for user %s", form_data.username)
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/me", response_model=Response[User], response_model_exclude='password')
+def me(user: User = Depends(get_current_user)):
+    LOGGER.debug(user)
+    return {'data': user}
 
 
 @app.get("/companies", response_model=Response[List[CompanyListing]], dependencies=[Depends(get_current_user)])
@@ -93,11 +104,14 @@ def get_prices_for_company(
                           WHERE username = %s AND company_symbol = %s;""",
                         (user.username, company.symbol)
                     )
-        shares_owned = cursor.fetchone()
+        try: 
+            shares_owned = cursor.fetchone()['shares_owned']
+        except TypeError:
+            shares_owned = 0
     return {"data": {
             **get_company_quote(company.symbol).dict(), 
             'available_shares': company.available_shares,
-            'shares_owned': shares_owned['shares_owned']
+            'shares_owned': shares_owned
         }
     }
 
@@ -133,30 +147,28 @@ def sell_shares(
     currency: str = Body(..., embed=True),
     user: User = Depends(get_current_user)
 ):
-    with get_cursor() as cursor:
-        cursor.execute("""SELECT shares_owned FROM shares_owned_by_user
-                          WHERE username = %s AND company_symbol = %s;""",
-                        (user.username, company.symbol))
-        total_shares_owned = cursor.fetchone()
+    shares_owned = get_shares_owned_by_user(company.symbol, user.username)
+    LOGGER.debug('User %s has %s shares for %s', user.username, shares_owned, company.symbol)
     
-    if amount_of_shares >= total_shares_owned:
+    if amount_of_shares >= shares_owned:
         LOGGER.info('Requested to sell more shares than owned.')
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Too many shares.')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Too many shares requested to be sold.')
     price_of_sale = get_latest_price_for_company(symbol=company.symbol)
+    LOGGER.debug('Price per share of sale %s', price_of_sale)
     total = price_of_sale * amount_of_shares
 
-    with get_cursor() as cursor:
-        cursor.execute("""INSERT INTO shares_owned_by_user (company_symbol, username, shares_owned)
-                    VALUES(%s, %s, %s)
-                    ON CONFLICT (company_symbol, username)
-                    DO UPDATE
-                    SET shares_owned = shares_owned_by_user.shares_owned - EXCLUDED.shares_owned""", 
-                (company.symbol, user.username, amount_of_shares)
-            )
-        remaining_shares = company.available_shares - amount_of_shares
-        cursor.execute("UPDATE companies SET available_shares = %s WHERE symbol = %s;", (remaining_shares, company.symbol))
+    update_shares_owned(
+        change=amount_of_shares, 
+        username=user.username, 
+        symbol=company.symbol, 
+        operator=Operators.DECREMENT
+    )
+    LOGGER.info('Updated users shares %s for company %s', user.username, company.symbol)
 
-    update_balance(change=total, username=user.username, operator=BalanceOperators.INCREMENT)
+    update_available_shares(symbol=company.symbol, change=amount_of_shares, operator=Operators.INCREMENT)
+    LOGGER.info('Updated available shares for company %s', company.symbol)
+
+    update_balance(change=total, username=user.username, operator=Operators.INCREMENT)
     LOGGER.info('Balance updated for %s', user.username)
 
     transaction_id = log_sale(
@@ -182,31 +194,40 @@ def purchase_shares(
     currency: str = Body(..., embed=True), 
     user: User = Depends(get_current_user)
 ):
-    if amount_of_shares > company.available_shares:
+    LOGGER.info('Request to purchase %s shares for %s in %s', amount_of_shares, company.symbol, currency)
+    if amount_of_shares > company.available_shares or company.available_shares == 0:
         LOGGER.info('Requested to purchase too many shares')
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Not enough shares available.')
 
-    price = next(get_latest_price_for_company(symbol=company.symbol), None)
+    price = get_latest_price_for_company(symbol=company.symbol)
     if price is None:
         LOGGER.info('Existing price not found, gathering price data for purchase.') 
         insert_update_price_for_company(symbol=company.symbol, currency=currency)
         price = get_latest_price_for_company(symbol=company.symbol)
+    LOGGER.debug('Latest price for %s is %s', company.symbol, price)
 
-    with get_cursor() as cursor:
-        converted_price = convert_price_to_currency(price['price'], currency_from='GBP', currency_to=currency)
+    if currency != BASE_CURRENCY:
+        LOGGER.debug('Converting currency as not in configured base currency')
+        converted_price = convert_price_to_currency(price['price'], currency_from=BASE_CURRENCY, currency_to=currency)
+        LOGGER.info('Converted price for %s is %s', currency, converted_price)
         total = converted_price * amount_of_shares
-        cursor.execute("""INSERT INTO shares_owned_by_user (company_symbol, username, shares_owned)
-                           VALUES(%s, %s, %s)
-                           ON CONFLICT (company_symbol, username)
-                           DO UPDATE
-                           SET shares_owned = shares_owned_by_user.shares_owned + EXCLUDED.shares_owned""", 
-                        (company.symbol, user.username, amount_of_shares)
-                    )
-        LOGGER.info('Updated users shares: %s', user.username)
-        remaining_shares = company.available_shares - amount_of_shares
-        cursor.execute("UPDATE companies SET available_shares = %s WHERE symbol = %s;", (remaining_shares, company.symbol))
+    else:
+        total = price * amount_of_shares
+    LOGGER.debug('Total value of transaction for purchasing is %s', total)
 
-    update_balance(change=total, username=user.username, operator=BalanceOperators.DECREMENT)
+
+    update_shares_owned(
+        change=amount_of_shares, 
+        username=user.username, 
+        symbol=company.symbol, 
+        operator=Operators.INCREMENT
+    )
+    LOGGER.info('Updated users shares %s for company %s', user.username, company.symbol)
+
+    update_available_shares(symbol=company.symbol, change=amount_of_shares, operator=Operators.DECREMENT)
+    LOGGER.info('Updated available shares for company %s', company.symbol)
+
+    update_balance(change=total, username=user.username, operator=Operators.DECREMENT)
     LOGGER.info('Balance updated for username %s', user.username)
 
     transaction_id = log_purchase(
@@ -219,6 +240,16 @@ def purchase_shares(
 
     insert_update_price_for_company(symbol=company.symbol)
     return {"transaction_id": transaction_id}
+
+@app.get("/companies/{symbol}/transactions", response_model=Response[List[Transaction]])
+def get_transactions_for_company(company: Company = Depends(_check_company_exists)):
+    with get_cursor() as cursor:
+        cursor.execute("""SELECT transaction_id, symbol, username, transaction_type, transaction_at,
+                            amount, total, currency
+                           FROM transactions
+                           WHERE symbol = %s;""", (company.symbol,))
+        transactions = cursor.fetchall()
+    return {'data': sorted([Transaction(**t) for t in transactions], key=lambda t: t.transaction_at)}
 
 @app.get('/transactions', response_model=Response[List[Transaction]])
 def get_transaction_history(user: User = Depends(get_current_user)):
