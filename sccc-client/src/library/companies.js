@@ -67,6 +67,30 @@ export function useCompanies() {
       generateAuthHeaders()
     )
   }
+
+  async function createCompany({ name, symbol, available_shares }, currency = 'USD') {
+    const { generateAuthHeaders } = useAuth()
+    await axios.post(`${process.env.VUE_APP_API_URL}/admin/companies`, 
+      {
+        company: {
+          name,
+          symbol,
+          available_shares,
+        },
+        currency
+      },
+      generateAuthHeaders()
+    )
+  }
+
+  async function modifyCompany(symbol, { available_shares }) {
+    const {generateAuthHeaders} = useAuth()
+    await axios.patch(`${process.env.VUE_APP_API_URL}/admin/companies/${symbol}`, 
+      {
+        available_shares
+      },
+      generateAuthHeaders())
+  }
   return {
     getCompanies,
     getCompany,
@@ -74,6 +98,8 @@ export function useCompanies() {
     getCompanyTransactionHistory,
     purchaseShares,
     sellShares,
+    createCompany,
+    modifyCompany,
     companies: computed(() => companies.value)
   }
 }

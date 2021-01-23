@@ -6,6 +6,7 @@ import 'bulma/css/bulma.min.css'
 import Login from "@/views/Login"
 import Dashboard from "@/views/Dashboard"
 import Company from '@/views/Company'
+import Admin from '@/views/Admin'
 
 import { useAuth } from './library/auth'
 
@@ -29,6 +30,11 @@ const routes = [
     component: Company,
     name: 'Company',
     props: true
+  },
+  {
+    path: '/admin',
+    component: Admin,
+    name: 'Admin'
   }
 ]
 

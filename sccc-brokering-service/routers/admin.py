@@ -19,7 +19,7 @@ def create_company(company: BaseCompany, currency: str = Body(..., embed=True)):
     with get_cursor() as cursor:
         LOGGER.debug('Inserting company with symbol %s into database', company.symbol)
         try:
-            cursor.execute("""INSERT INTO companies (symbol, name, available_shares, last_updated)
+            cursor.execute("""INSERT INTO companies (symbol, name, available_shares, last_update)
                 VALUES (%s, %s, %s, %s);""", (company.symbol, company.name, company.available_shares, timestamp)
             )
         except UniqueViolation as exc:

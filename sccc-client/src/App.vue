@@ -15,22 +15,27 @@
         <router-link class="navbar-item" to="/dashboard">
           Dashboard
         </router-link>
+        <router-link class="navbar-item" to="/admin">
+          Admin
+        </router-link>
       </div>
     </div>
   </nav>
-  <section class="section" v-if="user.value">
-    <div class="is-justify-content-flex-end is-flex is-flex-direction-column is-align-items-baseline">
-      <span class="is-size-2">
-        ${{ user.value.balance }}
-      </span>
-      <span class="is-size-4 is-uppercase is-italic has-text-weight-bold has-text-grey-light">
-        Balance
-      </span>
-    </div>
-  </section>
-  <section class="section has-background-light" style="height: 100%;">
-    <router-view></router-view>
-  </section>
+  <div class="container is-fullhd has-background-light">
+    <section class="section" v-if="user.value">
+      <div class="is-justify-content-flex-end is-flex is-flex-direction-column is-align-items-baseline">
+        <span class="is-size-2">
+          ${{ user.value.balance }}
+        </span>
+        <span class="is-size-4 is-uppercase is-italic has-text-weight-bold has-text-grey-light">
+          Balance
+        </span>
+      </div>
+    </section>
+    <section class="section has-background-light" style="height: 100%;">
+      <router-view></router-view>
+    </section>
+  </div>
 </template>
 
 <script>

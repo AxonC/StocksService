@@ -9,8 +9,15 @@
           placeholder="Fuzzy search of Company" />
       </div>
       <div class="control">
-        <label for="">Price</label>
-        <input type="text" class="input" v-model="priceQuery">
+        <label for="">Price Low</label>
+        <input type="text" class="input" v-model="priceQuery.low">
+      </div>
+      <div class="control">
+        <label for="">Price High</label>
+        <input type="text" class="input" v-model="priceQuery.high">
+      </div>
+      <div class="mt-3 has-text-right">
+        <button class="button is-info" @click="resetSearch">Reset Search</button>
       </div>
     </div>
     <table class="table is-fullwidth">
@@ -55,7 +62,10 @@ export default {
       companies 
     } = useCompanies()
     const searchQuery = ref('')
-    const priceQuery = ref(0)
+    const priceQuery = ref({
+      low: 0,
+      high: 0
+    })
     const formatDate = (date) => {
       return format(new Date(date), 'Pp', { locale: enGB })
     }
@@ -66,19 +76,31 @@ export default {
       ]
     }
     const filteredCompanies = computed(() => {
-      if (searchQuery.value.length > 1) {
-        const fuse = new Fuse(companies.value, searchOptions)
-        return fuse.search(searchQuery.value).map(item => item.item)
+      let localCompanies = [...companies.value]
+      if (priceQuery.value.low > 0) {
+        localCompanies = localCompanies.filter(({ last_price }) => last_price > parseInt(priceQuery.value.low))
       }
-      return companies.value
+      if (priceQuery.value.high > 0) {
+        localCompanies = localCompanies.filter(({ last_price }) => last_price < parseInt(priceQuery.value.high))
+      }
+      if (searchQuery.value.length > 1) {
+        const fuse = new Fuse(localCompanies, searchOptions)
+        localCompanies = fuse.search(searchQuery.value).map(item => item.item)
+      }
+      return localCompanies
     })
+    const resetSearch = () => {
+      priceQuery.value = {low: 0, high: 0}
+      searchQuery.value = ''
+    }
     onMounted(getCompanies)
     return {
       searchQuery,
       priceQuery,
       companies,
       formatDate,
-      filteredCompanies
+      filteredCompanies,
+      resetSearch
     }
   }
 }
