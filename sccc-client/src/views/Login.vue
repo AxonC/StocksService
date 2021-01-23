@@ -36,7 +36,7 @@ export default {
       password: ''
     })
     const submitForm = async () => {
-      const { login } = useAuth()
+      const { login }  = useAuth()
       await login(form.value.username, form.value.password)
       await router.push({ name: 'Dashboard'})
     }

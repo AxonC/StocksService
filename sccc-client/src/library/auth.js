@@ -1,8 +1,8 @@
-import { computed, ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 
 export const user = ref()
-const token = sessionStorage.getItem('shares_token')
+const token = ref(sessionStorage.getItem('shares_token'))
 
 export function useAuth() {
   const isAuthenticated = ref(false)
@@ -30,7 +30,7 @@ export function useAuth() {
     try {
       await axios.post(`${process.env.VUE_APP_API_URL}/login`, {}, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token.value}`
         }
       })
       isAuthenticated.value = true;
@@ -39,10 +39,35 @@ export function useAuth() {
     }
   }
 
+  async function fetchUserDetails() {
+    try {
+      const { data } = await axios.get(`${process.env.VUE_APP_API_URL}/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${token.value}`
+          }
+        })
+      user.value = data.data
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  function generateAuthHeaders() {
+    return {
+      headers: {
+        Authorization: `Bearer ${token.value}`
+      }
+    }
+  }
+
   return {
     login,
     checkExistingToken,
-    isAuthenticated: computed(() => isAuthenticated),
-    token: computed(() => token)
+    isAuthenticated,
+    fetchUserDetails,
+    user: computed(() => user),
+    token,
+    generateAuthHeaders
   }
 }

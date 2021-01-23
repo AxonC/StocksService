@@ -5,10 +5,15 @@ import 'bulma/css/bulma.min.css'
 
 import Login from "@/views/Login"
 import Dashboard from "@/views/Dashboard"
+import Company from '@/views/Company'
 
 import { useAuth } from './library/auth'
 
 const routes = [
+  {
+    path: '/',
+    redirect: { name: 'Login'}
+  },
   {
     path: '/login',
     component: Login,
@@ -18,6 +23,12 @@ const routes = [
     path: '/dashboard',
     component: Dashboard,
     name: 'Dashboard'
+  },
+  {
+    path: '/company/:symbol:',
+    component: Company,
+    name: 'Company',
+    props: true
   }
 ]
 
@@ -29,14 +40,24 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const {
     isAuthenticated,
-    checkExistingToken
+    checkExistingToken,
+    fetchUserDetails
   } = useAuth()
+  
+  if (to.name !== 'Login') {
+    await checkExistingToken();
+  }
 
-  await checkExistingToken()
 
-  if (!isAuthenticated && to.name !== 'Login') {
+  if (!isAuthenticated.value && to.name !== 'Login') {
     next({ name: 'Login'})
+  } else if (isAuthenticated.value && to.name == 'Login') {
+    next({ name: 'Dashboard'})
   } else {
+    await checkExistingToken()
+    if (isAuthenticated.value) {
+      await fetchUserDetails();
+    }
     next()
   }
 })

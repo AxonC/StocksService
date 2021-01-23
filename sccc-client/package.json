@@ -10,7 +10,10 @@
   "dependencies": {
     "axios": "^0.21.1",
     "bulma": "^0.9.1",
+    "bulma-toast": "^2.2.0",
     "core-js": "^3.6.5",
+    "date-fns": "^2.16.1",
+    "fuse.js": "^6.4.6",
     "vue": "^3.0.0",
     "vue-router": "4"
   },

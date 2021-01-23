@@ -18,14 +18,32 @@
       </div>
     </div>
   </nav>
+  <section class="section" v-if="user.value">
+    <div class="is-justify-content-flex-end is-flex is-flex-direction-column is-align-items-baseline">
+      <span class="is-size-2">
+        ${{ user.value.balance }}
+      </span>
+      <span class="is-size-4 is-uppercase is-italic has-text-weight-bold has-text-grey-light">
+        Balance
+      </span>
+    </div>
+  </section>
   <section class="section has-background-light" style="height: 100%;">
     <router-view></router-view>
   </section>
 </template>
 
 <script>
+import { useAuth } from './library/auth'
 export default {
   name: 'App',
+  setup() {
+    const { user, isAuthenticated } = useAuth()
+    return {
+      user,
+      isAuthenticated
+    }
+  }
 }
 </script>
 
