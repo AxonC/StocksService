@@ -20,6 +20,7 @@ export function useAuth() {
         }
       )
       sessionStorage.setItem('shares_token', data.access_token)
+      token.value = data.access_token
       isAuthenticated.value = true
     } catch (e) {
       console.error(e)  

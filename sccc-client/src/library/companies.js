@@ -91,6 +91,13 @@ export function useCompanies() {
       },
       generateAuthHeaders())
   }
+
+  async function refreshPrices(symbol, currency) {
+    const { generateAuthHeaders } = useAuth()
+    await axios.patch(`${process.env.VUE_APP_API_URL}/companies/${symbol}/update-prices`, {
+      currency
+    }, generateAuthHeaders())
+  }
   return {
     getCompanies,
     getCompany,
@@ -100,6 +107,7 @@ export function useCompanies() {
     sellShares,
     createCompany,
     modifyCompany,
+    refreshPrices,
     companies: computed(() => companies.value)
   }
 }

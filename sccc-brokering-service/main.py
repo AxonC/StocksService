@@ -28,8 +28,11 @@ from company import update_available_shares, get_shares_owned_by_user
 
 from routers import admin
 
+from prometheusrock import PrometheusMiddleware, metrics_route
+
 app = FastAPI()
 
+app.add_middleware(PrometheusMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,6 +40,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_route('/metrics', metrics_route)
 
 app.include_router(admin.router, prefix='/admin', dependencies=[Depends(get_current_user)])
 
@@ -126,7 +131,7 @@ def get_price_history_for_company(symbol: str):
     return {"data": [CompanyPriceHistory(**history) for history in prices]}
 
 @app.patch("/companies/{symbol}/update-prices", dependencies=[Depends(get_current_user)], status_code=status.HTTP_204_NO_CONTENT)
-def update_price_for_company(symbol: str, currency: str = Body('GBP')):
+def update_price_for_company(symbol: str, currency: str = Body('GBP', embed=True)):
     with get_cursor() as cursor:
         cursor.execute("SELECT timestamp FROM prices ORDER BY timestamp DESC LIMIT 1;")
         row = cursor.fetchone()
@@ -208,7 +213,7 @@ def purchase_shares(
 
     if currency != BASE_CURRENCY:
         LOGGER.debug('Converting currency as not in configured base currency')
-        converted_price = convert_price_to_currency(price['price'], currency_from=BASE_CURRENCY, currency_to=currency)
+        converted_price = convert_price_to_currency(price, currency_from=BASE_CURRENCY, currency_to=currency)
         LOGGER.info('Converted price for %s is %s', currency, converted_price)
         total = converted_price * amount_of_shares
     else:

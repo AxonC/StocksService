@@ -4,10 +4,17 @@
       <template v-slot:title>Buy Shares</template>
       <template v-slot:default>
         <div>
-          Cost: {{ company.last * sharesToBuy }}
+          Cost (USD): {{ company.last * sharesToBuy }}
         </div>
-        <label for="">Shares</label>
-        <input class="input" type="text" v-model="sharesToBuy" />
+        <div class="control">
+          <label for="">Shares</label>
+          <input class="input" type="text" v-model="sharesToBuy" />
+        </div>
+          <div class="select mt-3">
+            <select name="" id="" v-model="currencyToBuy">
+              <option :value="currency.code" :key="currency.code" v-for="currency in currencies">{{ currency.name }} ({{ currency.code}})</option>
+            </select>
+          </div>
       </template>
       <template v-slot:footer>
         <button class="button is-success" @click="purchase">
@@ -30,8 +37,12 @@
         </button>
       </template>
     </modal>
-    <div class="mb-2">
+    <div class="is-flex is-justify-content-space-between mb-2">
       <router-link :to="{ name: 'Dashboard' }">Back</router-link>
+      <a @click="refreshPricing">
+        Refresh Prices
+      </a>
+
     </div>
     <div class="box">
       <div class="block is-flex is-justify-content-space-between is-align-items-center">
@@ -80,7 +91,8 @@
       </div>
     </div>
     <box>
-      <template v-slot:title>Price History</template>
+      <template v-slot:title>Price History
+      </template>
       <template v-slot:subtitle>Known price history when prices have been updated</template>
       <table class="table is-fullwidth">
         <thead>
@@ -128,6 +140,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useCompanies } from '../library/companies'
 import { useAuth } from '../library/auth'
+import { useCurrencies } from '../library/currencies'
 import { useRoute } from 'vue-router'
 import { toast } from 'bulma-toast'
 import { formatDate } from '../library/helpers'
@@ -144,8 +157,13 @@ export default {
       getCompanyPriceHistory,
       purchaseShares,
       sellShares,
-      getCompanyTransactionHistory
+      getCompanyTransactionHistory,
+      refreshPrices
     } = useCompanies()
+    const {
+      currencies,
+      getCurrencies
+    } = useCurrencies()
     const { fetchUserDetails } = useAuth()
     const route = useRoute()
     const company = ref({})
@@ -153,6 +171,7 @@ export default {
     const priceHistory = ref([])
     const showBuyModal = ref(false)
     const showSellModal = ref(false)
+    const currencyToBuy = ref('USD')
     const sharesToBuy = ref(0)
     const sharesToSell = ref(0)
     const assignCompany = async (symbol) => {
@@ -192,15 +211,16 @@ export default {
     onMounted(() => assignCompany(route.params.symbol))
     onMounted(() => assignPriceHistory(route.params.symbol))
     onMounted(() => assignTransactions(route.params.symbol))
+    onMounted(getCurrencies)
     const purchase = async () => {
-      await purchaseShares(company.value.symbol, 'USD', sharesToBuy.value)
+      await purchaseShares(company.value.symbol, currencyToBuy.value, sharesToBuy.value)
       await assignCompany(route.params.symbol)
       await fetchUserDetails()
       showBuyModal.value = false
       toast({
         message: 'Shares purchased!',
         type: 'is-success',
-        position: 'bottom-right'
+        position: 'top-right'
       })
     }
 
@@ -208,7 +228,7 @@ export default {
       try {
         await sellShares(
           company.value.symbol,
-          'USD',
+          currencyToBuy.value,
           sharesToSell.value
         )
         await assignCompany(route.params.symbol)
@@ -217,15 +237,33 @@ export default {
         toast({ 
           message: 'Shares sold!',
           type: 'is-success',
-          position: 'bottom-right'
+          position: 'top-right'
         })
       } catch (e) {
         toast({
           message: e.response.data.detail,
           type: 'is-danger',
-          position: 'bottom-right'
+          position: 'top-right'
         })
         showSellModal.value = false
+      }
+    }
+
+    const refreshPricing = async() => {
+      try {
+        await refreshPrices(route.params.symbol, 'USD')
+        await assignPriceHistory()
+        toast({
+          message: 'Prices updated',
+          type: 'is-success',
+          position: 'top-right'
+        })
+      } catch (e) {
+        toast({
+          message: 'Price update too soon',
+          type: 'is-danger',
+          position: 'top-right'
+        })
       }
     }
 
@@ -243,7 +281,10 @@ export default {
       sharesToBuy,
       sharesToSell,
       purchase,
-      sell
+      sell,
+      currencies,
+      currencyToBuy,
+      refreshPricing
     }
   }  
 }
