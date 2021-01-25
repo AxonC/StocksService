@@ -22,10 +22,10 @@
     </div>
   </nav>
   <div class="container is-fullhd has-background-light">
-    <section class="section" v-if="user.value">
+    <section class="section" v-if="user">
       <div class="is-justify-content-flex-end is-flex is-flex-direction-column is-align-items-baseline">
         <span class="is-size-2">
-          ${{ user.value.balance }}
+          ${{ user.balance }}
         </span>
         <span class="is-size-4 is-uppercase is-italic has-text-weight-bold has-text-grey-light">
           Balance

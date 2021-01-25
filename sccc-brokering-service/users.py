@@ -42,6 +42,7 @@ def get_shares_portfolio(username: str):
     with get_cursor() as cursor:
         LOGGER.debug('Getting shares owned for %s', username)
         query = """SELECT company_symbol, shares_owned FROM shares_owned_by_user
-                WHERE username = %s"""
+                WHERE username = %s
+                ORDER BY company_symbol;"""
         cursor.execute(query, (username,))
         return cursor.fetchall()

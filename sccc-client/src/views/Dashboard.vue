@@ -1,7 +1,26 @@
 <template>
   <div>
-    <h1 class="title">Available Shares</h1>
-    <p class="subtitle">Shares are listed with their last price</p>
+    <div>
+      <h1 class="title">My Portfolio</h1>
+      <table class="table is-fullwidth">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Shares Owned</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="owned in portfolio" :key="owned.company_symbol">
+            <td>{{ owned.company_symbol }}</td>
+            <td>{{ owned.shares_owned }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-4">
+      <h1 class="title">Available Shares</h1>
+      <p class="subtitle">Shares are listed with their last price</p>
+    </div>
     <div class="box">
       <h2 class="title-2">Search</h2>
       <div class="control">
@@ -55,12 +74,14 @@ import { useCompanies } from '../library/companies'
 import { format } from 'date-fns'
 import { enGB } from 'date-fns/locale' 
 import Fuse from 'fuse.js'
+import { useAuth } from '../library/auth'
 export default {
   setup() {
     const { 
       getCompanies,
       companies 
     } = useCompanies()
+    const { user } = useAuth()
     const searchQuery = ref('')
     const priceQuery = ref({
       low: 0,
@@ -94,13 +115,15 @@ export default {
       searchQuery.value = ''
     }
     onMounted(getCompanies)
+    onMounted(() => console.log(user.value))
     return {
       searchQuery,
       priceQuery,
       companies,
       formatDate,
       filteredCompanies,
-      resetSearch
+      resetSearch,
+      portfolio: computed(() => user.value.portfolio)
     }
   }
 }

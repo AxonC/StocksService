@@ -10,11 +10,11 @@
           <label for="">Shares</label>
           <input class="input" type="text" v-model="sharesToBuy" />
         </div>
-          <div class="select mt-3">
-            <select name="" id="" v-model="currencyToBuy">
-              <option :value="currency.code" :key="currency.code" v-for="currency in currencies">{{ currency.name }} ({{ currency.code}})</option>
-            </select>
-          </div>
+        <div class="select mt-3">
+          <select name="" id="" v-model="currencyToBuy">
+            <option :value="currency.code" :key="currency.code" v-for="currency in currencies">{{ currency.name }} ({{ currency.code}})</option>
+          </select>
+        </div>
       </template>
       <template v-slot:footer>
         <button class="button is-success" @click="purchase">
@@ -26,10 +26,15 @@
       <template v-slot:title>Sell Shares</template>
       <template v-slot:default>
         <div>
-          Sale Price: {{ company.last * sharesToSell }}
+          Sale Price (USD): {{ company.last * sharesToSell }}
         </div>
         <label for="">Shares</label>
         <input class="input" type="text" v-model="sharesToSell" />
+        <div class="select mt-3">
+          <select name="" id="" v-model="currencyToSell">
+            <option :value="currency.code" :key="currency.code" v-for="currency in currencies">{{ currency.name }} ({{ currency.code}})</option>
+          </select>
+        </div>
       </template>
       <template v-slot:footer>
         <button class="button is-success" @click="sell">
@@ -110,7 +115,7 @@
       </table>
     </box>
     <box>
-      <template v-slot:title>Transation History</template>
+      <template v-slot:title>Transaction History</template>
       <table class="table is-fullwidth" v-if="transactions.length">
         <thead>
           <th>Transaction type</th>
@@ -124,7 +129,7 @@
             <td>{{ determineTransactionType(transaction.transaction_type ) }}</td>
             <td>{{ transaction.total }}</td>
             <td>{{ transaction.amount }}</td>
-            <td>{{ transaction.currecny }}</td>
+            <td>{{ transaction.currency }}</td>
             <td>{{ formatDate(transaction.transaction_at) }}</td>
           </tr>
         </tbody>
@@ -172,6 +177,7 @@ export default {
     const showBuyModal = ref(false)
     const showSellModal = ref(false)
     const currencyToBuy = ref('USD')
+    const currencyToSell = ref('USD')
     const sharesToBuy = ref(0)
     const sharesToSell = ref(0)
     const assignCompany = async (symbol) => {
@@ -201,6 +207,7 @@ export default {
       }[type] || ''
     }
     function toggleModal(type) {
+      console.log('toggking')
       if (type == 'sell') {
         showSellModal.value = !showSellModal.value
       } else {
@@ -208,14 +215,15 @@ export default {
       }
     }
     const canSellShares = computed(() => company.value.shares_owned > 0)
-    onMounted(() => assignCompany(route.params.symbol))
-    onMounted(() => assignPriceHistory(route.params.symbol))
-    onMounted(() => assignTransactions(route.params.symbol))
+    onMounted(assignCompany(route.params.symbol))
+    onMounted(assignPriceHistory(route.params.symbol))
+    onMounted(assignTransactions(route.params.symbol))
     onMounted(getCurrencies)
     const purchase = async () => {
       await purchaseShares(company.value.symbol, currencyToBuy.value, sharesToBuy.value)
       await assignCompany(route.params.symbol)
       await fetchUserDetails()
+      await assignTransactions(route.params.symbol)
       showBuyModal.value = false
       toast({
         message: 'Shares purchased!',
@@ -228,11 +236,12 @@ export default {
       try {
         await sellShares(
           company.value.symbol,
-          currencyToBuy.value,
+          currencyToSell.value,
           sharesToSell.value
         )
         await assignCompany(route.params.symbol)
         await fetchUserDetails()
+        await assignTransactions(route.params.symbol)
         showSellModal.value = false
         toast({ 
           message: 'Shares sold!',
@@ -252,7 +261,7 @@ export default {
     const refreshPricing = async() => {
       try {
         await refreshPrices(route.params.symbol, 'USD')
-        await assignPriceHistory()
+        await assignPriceHistory(route.params.symbol)
         toast({
           message: 'Prices updated',
           type: 'is-success',
@@ -284,7 +293,8 @@ export default {
       sell,
       currencies,
       currencyToBuy,
-      refreshPricing
+      refreshPricing,
+      currencyToSell
     }
   }  
 }

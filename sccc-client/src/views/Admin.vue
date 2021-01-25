@@ -115,6 +115,7 @@ export default {
         type: 'is-success',
         position: 'top-right'
       })
+      await getCompanies()
       showFormModal.value = false
       resetCompany()
     }

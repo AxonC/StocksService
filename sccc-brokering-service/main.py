@@ -134,7 +134,7 @@ def get_price_history_for_company(symbol: str):
 @app.patch("/companies/{symbol}/update-prices", dependencies=[Depends(get_current_user)], status_code=status.HTTP_204_NO_CONTENT)
 def update_price_for_company(symbol: str, currency: str = Body('GBP', embed=True)):
     with get_cursor() as cursor:
-        cursor.execute("SELECT timestamp FROM prices ORDER BY timestamp DESC LIMIT 1;")
+        cursor.execute("SELECT timestamp FROM prices WHERE company_symbol = %s ORDER BY timestamp DESC LIMIT 1;", (symbol,))
         row = cursor.fetchone()
         time_delta = datetime.now(tz=timezone.utc) - row['timestamp'] if row is not None else None
         if time_delta is not None and time_delta.total_seconds() <= timedelta(minutes=10).total_seconds():
@@ -163,6 +163,9 @@ def sell_shares(
     LOGGER.debug('Price per share of sale %s', price_of_sale)
     total = price_of_sale * amount_of_shares
 
+    if currency != BASE_CURRENCY:
+        total = total * convert_price_to_currency(price_of_sale, currency_from=BASE_CURRENCY, currency_to=currency)
+ 
     update_shares_owned(
         change=amount_of_shares, 
         username=user.username, 
@@ -216,7 +219,8 @@ def purchase_shares(
         LOGGER.debug('Converting currency as not in configured base currency')
         converted_price = convert_price_to_currency(price, currency_from=BASE_CURRENCY, currency_to=currency)
         LOGGER.info('Converted price for %s is %s', currency, converted_price)
-        total = converted_price * amount_of_shares
+        base_total = price * amount_of_shares
+        total = base_total * converted_price
     else:
         total = price * amount_of_shares
     LOGGER.debug('Total value of transaction for purchasing is %s', total)
@@ -253,9 +257,10 @@ def get_transactions_for_company(company: Company = Depends(_check_company_exist
         cursor.execute("""SELECT transaction_id, symbol, username, transaction_type, transaction_at,
                             amount, total, currency
                            FROM transactions
-                           WHERE symbol = %s;""", (company.symbol,))
+                           WHERE symbol = %s
+                           ORDER BY transaction_at DESC;""", (company.symbol,))
         transactions = cursor.fetchall()
-    return {'data': sorted([Transaction(**t) for t in transactions], key=lambda t: t.transaction_at)}
+    return {'data': [Transaction(**t) for t in transactions]}
 
 @app.get('/transactions', response_model=Response[List[Transaction]])
 def get_transaction_history(user: User = Depends(get_current_user)):

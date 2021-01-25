@@ -1,7 +1,7 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import axios from 'axios'
 
-export const user = ref()
+export const user = ref({})
 const token = ref(sessionStorage.getItem('shares_token'))
 
 export function useAuth() {
@@ -67,7 +67,7 @@ export function useAuth() {
     checkExistingToken,
     isAuthenticated,
     fetchUserDetails,
-    user: computed(() => user),
+    user,
     token,
     generateAuthHeaders
   }
