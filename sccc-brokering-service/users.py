@@ -37,3 +37,11 @@ def update_shares_owned(change: int, username: str, symbol: str, operator: Opera
                     SET shares_owned = shares_owned_by_user.shares_owned - EXCLUDED.shares_owned"""
     with get_cursor() as cursor:
         cursor.execute(query, (symbol, username, change))
+
+def get_shares_portfolio(username: str):
+    with get_cursor() as cursor:
+        LOGGER.debug('Getting shares owned for %s', username)
+        query = """SELECT company_symbol, shares_owned FROM shares_owned_by_user
+                WHERE username = %s"""
+        cursor.execute(query, (username,))
+        return cursor.fetchall()

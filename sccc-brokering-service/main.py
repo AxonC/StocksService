@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from auth import get_current_user, authenticate_user, create_token
 from persistence import get_cursor
 from models import Company, Response, Currency, StockQuoteApiResponse, CompanyListing, \
-    CompanyDetails, CompanyPriceHistory, User, Transaction, Operators
+    CompanyDetails, CompanyPriceHistory, User, Transaction, Operators, UserWithPortfolio, SharesOwned
 from config import DBConfig, CURRENCY_SOAP_URL, STOCK_PRICE_URL, STOCK_PRICE_TOKEN, \
     BASE_CURRENCY
 from prices import (
@@ -23,7 +23,7 @@ from prices import (
     get_latest_price_for_company
 )
 from transactions import log_purchase, get_transactions_by_username, log_sale
-from users import update_balance, update_shares_owned
+from users import update_balance, update_shares_owned, get_shares_portfolio
 from company import update_available_shares, get_shares_owned_by_user
 
 from routers import admin
@@ -73,10 +73,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     LOGGER.info("Token generated for user %s", form_data.username)
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/me", response_model=Response[User], response_model_exclude='password')
+@app.get("/me", response_model=Response[UserWithPortfolio], response_model_exclude='password')
 def me(user: User = Depends(get_current_user)):
     LOGGER.debug(user)
-    return {'data': user}
+    portfolio = [SharesOwned(**so) for so in get_shares_portfolio(username=user.username)]
+    return {'data': UserWithPortfolio(**user.dict(), portfolio=portfolio)}
 
 
 @app.get("/companies", response_model=Response[List[CompanyListing]], dependencies=[Depends(get_current_user)])

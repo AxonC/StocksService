@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TypeVar, Optional, Generic
+from typing import TypeVar, Optional, Generic, List
 
 from pydantic import BaseModel, Field
 from pydantic.generics import GenericModel
@@ -68,3 +68,10 @@ class BaseUser(BaseModel):
 class User(BaseUser):
     password: str
     balance: int
+
+class SharesOwned(BaseModel):
+    company_symbol: str
+    shares_owned: int
+
+class UserWithPortfolio(User):
+    portfolio: List[SharesOwned]
